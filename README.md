@@ -2,9 +2,9 @@
 
 > 一句话描述项目用途
 
-- **仓库地址**：https://github.com/yourname/your-project
-- **作者**：XXX
-- **邮箱**：xxx@example.com
+- **仓库地址**：https://github.com/liaoaiwo/ai-content-safety-system
+- **作者**：艾子馨、周子群
+- **邮箱**：3349355264@qq.com、1325668804@qq.com
 
 ## 项目简介
 
