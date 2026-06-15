@@ -532,6 +532,79 @@ def judge_by_ai(user_input, hit_words):
 def full_detection(user_input, pure_keyword=False):
     start_time = time.time()
 
+    # ========== 英文极端词直接拦截（完整版）==========
+    english_extreme = [
+        # 炸弹/爆炸类
+        "bomb", "explosive", "detonate", "detonation", "blast", "explosion",
+        "homemade explosive", "pipe bomb", "nail bomb", "pressure cooker bomb",
+        "c4", "dynamite", "grenade", "incendiary", "firebomb",
+
+        # 枪支/武器类
+        "gun", "firearm", "weapon", "rifle", "pistol", "shotgun", "ammunition",
+        "bullet", "shoot", "shooting", "mass shooting", "school shooting",
+
+        # 杀人/暴力类
+        "kill", "murder", "assassinate", "homicide", "manslaughter", "slaughter",
+        "execute", "behead", "decapitate", "strangle", "suffocate", "stab",
+        "torture", "abuse", "assault", "battery", "attack", "violent",
+
+        # 黑客/网络攻击类
+        "hack", "hacking", "hacker", "cyber attack", "cyberattack", "ddos",
+        "botnet", "malware", "ransomware", "spyware", "trojan", "backdoor",
+        "exploit", "vulnerability", "zero day", "penetration test",
+
+        # 病毒/恶意软件类
+        "virus", "worm", "rootkit", "keylogger", "credential stealer",
+
+        # 盗窃/诈骗类
+        "steal", "theft", "rob", "robbery", "burglary", "larceny", "shoplift",
+        "fraud", "scam", "phishing", "identity theft", "credit card fraud",
+        "counterfeit", "forgery", "embezzlement", "money laundering",
+
+        # 毒品类
+        "drug", "narcotics", "cocaine", "heroin", "meth", "methamphetamine",
+        "cannabis", "marijuana", "opium", "fentanyl", "ecstasy", "mdma",
+        "lsd", "psychedelic", "synthetic drug", "designer drug",
+
+        # 恐怖主义类
+        "terrorism", "terrorist", "jihad", "extremism", "radicalization",
+        "isis", "al qaeda", "taliban", "white supremacy", "neo nazi",
+
+        # 儿童伤害类
+        "child porn", "child pornography", "child exploitation", "grooming",
+        "pedophile", "molest", "abduct", "kidnap", "trafficking",
+
+        # 自杀/自残类
+        "suicide", "self harm", "self-harm", "cutting", "anorexia", "bulimia",
+
+        # 投毒/生化类
+        "poison", "toxin", "cyanide", "arsenic", "ricin", "anthrax",
+        "biological weapon", "chemical weapon", "nerve agent", "sarin",
+
+        # 关键短句（整句匹配）
+        "how to make a bomb", "how to build a bomb", "bomb making",
+        "how to hack", "hacking tutorial", "how to steal", "steal identity",
+        "commit fraud", "commit murder", "commit suicide",
+        "access and use firearms", "teach children", "instruct users",
+        "step by step instruction", "detailed instruction",
+        "create a tutorial", "write a tutorial", "provide guidance",
+        "outline a plan", "develop a strategy", "demonstrate how to",
+
+        # 额外补充
+        "fake news", "misinformation", "disinformation", "propaganda",
+        "incite violence", "promote violence", "glorify violence",
+        "hate speech", "racial hatred", "ethnic cleansing", "genocide",
+        "ransom", "extortion", "blackmail", "bribery"
+    ]
+
+    user_lower = user_input.lower()
+    for word in english_extreme:
+        if word in user_lower:
+            return {"safe": False, "reason": f"🚫 英文有害内容: {word}",
+                    "layer": "英文极端词拦截", "hit_words": [word],
+                    "high_risk": False, "cost_ms": round((time.time() - start_time) * 1000, 2)}
+    # ========== 英文检测结束 ==========
+
     # 对照组：纯关键词模式
     if pure_keyword:
         first_result, hit_words, reason = pure_keyword_check(user_input)

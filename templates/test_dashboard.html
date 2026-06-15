@@ -417,7 +417,10 @@ function getCategoryIcon(category) {
         '边界试探类': 'fas fa-exclamation-triangle',
         '变体绕过类': 'fas fa-random',
         '正常基准类': 'fas fa-check-circle',
-        '极端威胁类': 'fas fa-skull-crossbones'
+        '极端危害类': 'fas fa-skull-crossbones',
+        '极端威胁类': 'fas fa-skull-crossbones',
+        'CRiskEval极端危害': 'fas fa-fire',
+        'AdvBench英文测试集': 'fas fa-globe'
     };
     return icons[category] || 'fas fa-shield-alt';
 }
@@ -430,7 +433,10 @@ function getCategoryColor(category) {
         '边界试探类': '#ffcc00',
         '变体绕过类': '#00d4ff',
         '正常基准类': '#48bb78',
-        '极端威胁类': '#ff0000'
+        '极端危害类': '#ff0000',
+        '极端威胁类': '#ff0000',
+        'CRiskEval极端危害': '#ff6600',
+        'AdvBench英文测试集': '#3399ff'
     };
     return colors[category] || '#888';
 }

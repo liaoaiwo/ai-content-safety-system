@@ -195,6 +195,46 @@ else:
     print("⚠️ CRiskEval 数据未加载，将只使用原有测试用例")
 
 
+# ==================== 从 AdvBench 加载英文测试用例 ====================
+
+def load_advbench_cases():
+    """从 AdvBench CSV 文件加载英文测试用例"""
+    advbench_cases = []
+    csv_path = "data/advbench/harmful_behaviors.csv"
+
+    if not os.path.exists(csv_path):
+        print(f"⚠️ AdvBench 文件不存在: {csv_path}")
+        return []
+
+    try:
+        with open(csv_path, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                goal = row.get('goal', '').strip()
+                if goal:
+                    advbench_cases.append(goal)
+
+        print(f"✅ 从 AdvBench 加载了 {len(advbench_cases)} 条英文测试用例")
+        return advbench_cases
+
+    except Exception as e:
+        print(f"❌ 加载 AdvBench 失败: {e}")
+        return []
+
+
+# 加载 AdvBench 数据（只取前30条，避免页面过长）
+advbench_cases = load_advbench_cases()
+
+if advbench_cases:
+    TEST_CASES["AdvBench英文测试集"] = {
+        "icon": "🌐",
+        "cases": advbench_cases[:30]
+    }
+    print(f"✅ 已添加 AdvBench 类别，共 {len(advbench_cases[:30])} 条")
+else:
+    print("⚠️ AdvBench 数据未加载")
+
+
 def get_all_test_cases():
     """获取所有测试用例"""
     all_cases = {}
