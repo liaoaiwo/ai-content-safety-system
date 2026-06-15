@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>测试聊天</title>
+    <style>
+        body { background: #0a0a0a; color: white; padding: 20px; font-family: monospace; }
+        #chat { height: 400px; overflow-y: auto; border: 1px solid #333; padding: 10px; margin-bottom: 10px; }
+        input { width: 80%; padding: 10px; background: #222; color: white; border: 1px solid #444; }
+        button { padding: 10px 20px; background: #00d4ff; color: black; border: none; cursor: pointer; }
+        .user { color: #00d4ff; }
+        .ai { color: #00c864; }
+        .error { color: #ff5050; }
+    </style>
+</head>
+<body>
+    <h2>🧪 测试聊天窗口</h2>
+    <div id="chat">
+        <div>👋 输入消息测试</div>
+    </div>
+    <input type="text" id="msg" placeholder="输入消息...">
+    <button onclick="send()">发送</button>
+
+    <script>
+        async function send() {
+            const input = document.getElementById('msg');
+            const msg = input.value.trim();
+            if (!msg) return;
+
+            const chatDiv = document.getElementById('chat');
+            chatDiv.innerHTML += `<div class="user">👤 你：${msg}</div>`;
+            input.value = '';
+            chatDiv.scrollTop = chatDiv.scrollHeight;
+
+            try {
+                const resp = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: msg })
+                });
+                const data = await resp.json();
+                if (data.blocked) {
+                    chatDiv.innerHTML += `<div class="error">🛡️ 拦截：${data.response}</div>`;
+                } else {
+                    chatDiv.innerHTML += `<div class="ai">🤖 AI：${data.response}</div>`;
+                }
+                chatDiv.scrollTop = chatDiv.scrollHeight;
+            } catch(e) {
+                chatDiv.innerHTML += `<div class="error">❌ 网络错误：${e.message}</div>`;
+            }
+        }
+
+        // 按回车发送
+        document.getElementById('msg').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') send();
+        });
+    </script>
+</body>
+</html>

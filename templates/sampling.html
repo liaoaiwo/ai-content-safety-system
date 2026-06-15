@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block title %}采样统计 - SafeGuard AI{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 25px;">
+    <h1 style="color: white; font-size: 1.8rem; font-weight: 600;">
+        <i class="fas fa-chart-simple"></i> 采样统计
+    </h1>
+    <p style="color: #888; margin-top: 8px;">AI 采样检测统计 · 未命中敏感词时的智能判断策略</p>
+</div>
+
+<!-- 统计卡片 -->
+<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px;">
+    <div class="card" style="text-align: center;">
+        <i class="fas fa-dice" style="font-size: 2rem; color: #00d4ff; margin-bottom: 10px;"></i>
+        <div class="stat-number" id="samplingRate">0%</div>
+        <div style="color: #888;">当前采样率</div>
+    </div>
+    <div class="card" style="text-align: center;">
+        <i class="fas fa-brain" style="font-size: 2rem; color: #7b2eda; margin-bottom: 10px;"></i>
+        <div class="stat-number" id="totalSampled">0</div>
+        <div style="color: #888;">AI判断次数</div>
+    </div>
+    <div class="card" style="text-align: center;">
+        <i class="fas fa-ban" style="font-size: 2rem; color: #ff5050; margin-bottom: 10px;"></i>
+        <div class="stat-number" id="sampledBlocked">0</div>
+        <div style="color: #888;">采样拦截数</div>
+    </div>
+    <div class="card" style="text-align: center;">
+        <i class="fas fa-check-circle" style="font-size: 2rem; color: #48bb78; margin-bottom: 10px;"></i>
+        <div class="stat-number" id="sampledPassed">0</div>
+        <div style="color: #888;">采样放行数</div>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px;">
+    <div class="card">
+        <h3><i class="fas fa-chart-pie"></i> AI判断结果分布</h3>
+        <div id="aiResultChart" style="height: 300px;"></div>
+    </div>
+    <div class="card">
+        <h3><i class="fas fa-info-circle"></i> 采样机制说明</h3>
+        <div style="margin-top: 15px; line-height: 1.8;">
+            <div style="background: rgba(0,212,255,0.1); padding: 12px; border-radius: 12px; margin-bottom: 15px;">
+                <i class="fas fa-shield-alt" style="color: #00d4ff;"></i>
+                <strong style="color: white;"> 检测流程</strong>
+                <div style="font-size: 13px; color: #aaa; margin-top: 10px;">
+                    <div>1️⃣ 用户输入 → 敏感词扫描 + 意图识别</div>
+                    <div>2️⃣ 命中极端词/伪装学术/注入攻击 → 直接拦截</div>
+                    <div>3️⃣ 命中普通词/可疑词 → 100% AI判断</div>
+                    <div>4️⃣ 未命中任何词 → <span style="color: #ffcc00;">按采样率概率 AI 判断</span></div>
+                </div>
+            </div>
+            <div style="background: rgba(72,187,120,0.1); padding: 12px; border-radius: 12px;">
+                <i class="fas fa-dice-d6" style="color: #48bb78;"></i>
+                <strong style="color: white;"> 采样率配置</strong>
+                <div style="font-size: 13px; color: #aaa; margin-top: 10px;">
+                    当前采样率: <strong id="currentSamplingRate" style="color: #00d4ff;">10%</strong><br>
+                    含义: 未命中敏感词时，有 <strong id="samplingRateValue" style="color: #ffcc00;">10%</strong> 的概率进入 AI 语义判断<br>
+                    其余 <strong id="passRateValue" style="color: #48bb78;">90%</strong> 直接放行，节省 API 调用成本
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card" style="margin-top: 25px;">
+    <h3><i class="fas fa-list-alt"></i> 最近采样记录</h3>
+    <div id="samplingLogs" style="max-height: 400px; overflow-y: auto;">
+        <div style="text-align: center; color: #888; padding: 30px;">加载中...</div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<script>
+let aiResultChart = null;
+
+async function loadSamplingStats() {
+    try {
+        const resp = await fetch('/api/sampling/stats');
+        const stats = await resp.json();
+        
+        document.getElementById('samplingRate').innerText = stats.sampling_rate;
+        document.getElementById('totalSampled').innerText = stats.total_sampled;
+        document.getElementById('sampledBlocked').innerText = stats.sampled_blocked;
+        document.getElementById('sampledPassed').innerText = stats.sampled_passed;
+        document.getElementById('currentSamplingRate').innerText = stats.sampling_rate;
+        document.getElementById('samplingRateValue').innerText = stats.sampling_rate;
+        
+        const passRate = 100 - parseInt(stats.sampling_rate);
+        document.getElementById('passRateValue').innerText = passRate + '%';
+        
+        if (aiResultChart) {
+            aiResultChart.setOption({
+                series: [{
+                    data: [
+                        { name: 'AI判断-拦截', value: stats.sampled_blocked, itemStyle: { color: '#ff5050' } },
+                        { name: 'AI判断-放行', value: stats.sampled_passed, itemStyle: { color: '#48bb78' } },
+                        { name: '强制AI判断', value: stats.forced_ai || 0, itemStyle: { color: '#ff8c00' } },
+                        { name: '采样放行', value: stats.sampling_passed || 0, itemStyle: { color: '#888' } }
+                    ]
+                }]
+            });
+        }
+    } catch(e) {
+        console.error('加载采样统计失败:', e);
+    }
+}
+
+async function loadSamplingLogs() {
+    try {
+        const resp = await fetch('/api/logs?limit=50');
+        const logs = await resp.json();
+        
+        const samplingLogs = logs.filter(log => 
+            log.detection_layer === '第二层（AI语义-采样）' || 
+            log.detection_layer === '第一层（采样放行）' ||
+            log.detection_layer === '伪装学术检测' ||
+            log.detection_layer === '注入攻击检测'
+        );
+        
+        const container = document.getElementById('samplingLogs');
+        if (samplingLogs.length === 0) {
+            container.innerHTML = '<div style="text-align: center; color: #888; padding: 30px;">暂无采样记录</div>';
+            return;
+        }
+        
+        container.innerHTML = samplingLogs.slice(0, 20).map(log => `
+            <div style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.08);">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <div style="color: #ccc; font-size: 13px;">${escapeHtml(log.user_input.substring(0, 60))}</div>
+                    <span class="${log.is_blocked ? 'badge-block' : 'badge-pass'}">
+                        ${log.is_blocked ? '🚫 拦截' : '✓ 放行'}
+                    </span>
+                </div>
+                <div style="font-size: 11px; color: #666; margin-top: 8px;">
+                    ${log.timestamp.replace('T', ' ')} | ${log.detection_layer} | ${escapeHtml(log.detection_reason)}
+                </div>
+            </div>
+        `).join('');
+    } catch(e) {
+        console.error('加载采样日志失败:', e);
+    }
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function initChart() {
+    aiResultChart = echarts.init(document.getElementById('aiResultChart'));
+    aiResultChart.setOption({
+        tooltip: { trigger: 'item' },
+        legend: { orient: 'vertical', left: 'left', textStyle: { color: '#ccc' } },
+        series: [{
+            type: 'pie',
+            radius: '55%',
+            center: ['50%', '50%'],
+            data: [],
+            label: { show: true, formatter: '{b}: {d}%', color: '#ccc' },
+            itemStyle: { borderRadius: 8, borderColor: '#1a1a1a', borderWidth: 2 }
+        }]
+    });
+}
+
+initChart();
+loadSamplingStats();
+loadSamplingLogs();
+setInterval(() => {
+    loadSamplingStats();
+    loadSamplingLogs();
+}, 10000);
+</script>
+{% endblock %}

@@ -1,0 +1,792 @@
+<!-- templates/test_dashboard.html -->
+{% extends "base.html" %}
+
+{% block title %}安全测试中心 - SafeGuard AI{% endblock %}
+
+{% block extra_css %}
+<style>
+    .test-category {
+        background: rgba(20, 20, 25, 0.95);
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        margin-bottom: 20px;
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+
+    .test-category:hover {
+        border-color: rgba(0, 212, 255, 0.5);
+        transform: translateY(-2px);
+    }
+
+    .test-category-header {
+        padding: 15px 20px;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: all 0.2s;
+    }
+
+    .test-category[data-category="直接违规类"] .test-category-header {
+        background: linear-gradient(135deg, rgba(255, 80, 80, 0.15), rgba(255, 80, 80, 0.05));
+        border-left: 4px solid #ff5050;
+    }
+
+    .test-category[data-category="越狱攻击类"] .test-category-header {
+        background: linear-gradient(135deg, rgba(255, 140, 0, 0.15), rgba(255, 140, 0, 0.05));
+        border-left: 4px solid #ff8c00;
+    }
+
+    .test-category[data-category="提示注入类"] .test-category-header {
+        background: linear-gradient(135deg, rgba(123, 46, 218, 0.15), rgba(123, 46, 218, 0.05));
+        border-left: 4px solid #7b2eda;
+    }
+
+    .test-category[data-category="边界试探类"] .test-category-header {
+        background: linear-gradient(135deg, rgba(255, 204, 0, 0.15), rgba(255, 204, 0, 0.05));
+        border-left: 4px solid #ffcc00;
+    }
+
+    .test-category[data-category="变体绕过类"] .test-category-header {
+        background: linear-gradient(135deg, rgba(0, 212, 255, 0.15), rgba(0, 212, 255, 0.05));
+        border-left: 4px solid #00d4ff;
+    }
+
+    .test-category[data-category="正常基准类"] .test-category-header {
+        background: linear-gradient(135deg, rgba(72, 187, 120, 0.15), rgba(72, 187, 120, 0.05));
+        border-left: 4px solid #48bb78;
+    }
+
+    .test-category[data-category="极端威胁类"] .test-category-header {
+        background: linear-gradient(135deg, rgba(255, 0, 0, 0.2), rgba(255, 0, 0, 0.08));
+        border-left: 4px solid #ff0000;
+        animation: red-pulse 2s infinite;
+    }
+
+    @keyframes red-pulse {
+        0%, 100% { border-left-color: #ff0000; }
+        50% { border-left-color: #ff6666; }
+    }
+
+    .test-category-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .test-case-list {
+        padding: 15px 20px;
+        display: none;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 8px;
+    }
+
+    .test-category.open .test-case-list {
+        display: grid;
+    }
+
+    .test-case-item {
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 12px;
+        padding: 10px 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 13px;
+        transition: all 0.2s;
+    }
+
+    .test-case-text {
+        color: #e0e0e0;
+        flex: 1;
+        word-break: break-word;
+        font-size: 12px;
+    }
+
+    .test-case-status {
+        margin-left: 10px;
+        font-size: 11px;
+        padding: 3px 10px;
+        border-radius: 20px;
+        white-space: nowrap;
+        font-weight: 500;
+    }
+
+    .status-untested {
+        background: rgba(128, 128, 128, 0.3);
+        color: #aaa;
+    }
+
+    .status-pass {
+        background: rgba(72, 187, 120, 0.25);
+        color: #48bb78;
+        border: 1px solid rgba(72, 187, 120, 0.3);
+    }
+
+    .status-block {
+        background: rgba(255, 80, 80, 0.25);
+        color: #ff8888;
+        border: 1px solid rgba(255, 80, 80, 0.3);
+    }
+
+    .progress-bar-container {
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 20px;
+        height: 8px;
+        overflow: hidden;
+        width: 120px;
+    }
+
+    .progress-bar {
+        background: linear-gradient(135deg, #00d4ff, #7b2eda);
+        height: 100%;
+        border-radius: 20px;
+        transition: width 0.5s ease;
+    }
+
+    .test-controls {
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+        margin-bottom: 25px;
+        align-items: center;
+    }
+
+    .test-stats {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+
+    .stat-card {
+        background: rgba(20, 20, 25, 0.95);
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 20px;
+        text-align: center;
+    }
+
+    .stat-card .stat-value {
+        font-size: 2.2rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #00d4ff, #7b2eda);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #00d4ff, #7b2eda);
+        color: white;
+        border: none;
+        padding: 10px 24px;
+        border-radius: 30px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .btn-primary:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .btn-secondary {
+        background: rgba(255, 255, 255, 0.12);
+        color: #ddd;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        padding: 8px 18px;
+        border-radius: 30px;
+        cursor: pointer;
+    }
+
+    .badge-risk-high {
+        background: rgba(255, 0, 0, 0.25);
+        color: #ff6666;
+        font-size: 10px;
+        padding: 2px 8px;
+        border-radius: 12px;
+        margin-left: 8px;
+    }
+
+    .badge-risk-critical {
+        background: rgba(255, 0, 0, 0.4);
+        color: #ff4444;
+        font-size: 10px;
+        padding: 2px 8px;
+        border-radius: 12px;
+        margin-left: 8px;
+        animation: blink 1s infinite;
+    }
+
+    @keyframes blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.6; }
+    }
+
+    input[type="range"] {
+        background: #333;
+        height: 4px;
+        border-radius: 5px;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+        background: #00d4ff;
+    }
+
+    label {
+        color: #ccc;
+    }
+
+    .running-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(0, 212, 255, 0.2);
+        padding: 8px 16px;
+        border-radius: 30px;
+        font-size: 13px;
+        color: #00d4ff;
+    }
+
+    .running-dot {
+        width: 10px;
+        height: 10px;
+        background: #00d4ff;
+        border-radius: 50%;
+        animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.5; transform: scale(1.2); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 25px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+        <div>
+            <h1 style="color: white; font-size: 1.8rem; font-weight: 600;">
+                <i class="fas fa-shield-virus" style="color: #ff5050;"></i> 安全测试中心
+            </h1>
+            <p style="color: #aaa; margin-top: 8px;">基于 AdvBench 等经典安全测试集 · 全面评估检测能力</p>
+        </div>
+        <div class="running-indicator" id="testStatus" style="display: none;">
+            <span class="running-dot"></span>
+            <span>测试运行中...</span>
+        </div>
+    </div>
+</div>
+
+<!-- 统计卡片 -->
+<div class="test-stats" id="testStats">
+    <div class="stat-card">
+        <div class="stat-value" id="totalTests">0</div>
+        <div style="color: #aaa;">总测试数</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" id="totalBlocked" style="color: #ff5050; background: none;">0</div>
+        <div style="color: #aaa;">拦截数</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" id="blockRate">0%</div>
+        <div style="color: #aaa;">拦截率</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" id="categoryCount">0</div>
+        <div style="color: #aaa;">测试类别</div>
+    </div>
+</div>
+
+<!-- 控制栏 -->
+<div class="test-controls">
+    <button class="btn-primary" id="runAllTestsBtn" onclick="runAllTests()">
+        <i class="fas fa-play"></i> 运行全部测试
+    </button>
+    <button class="btn-primary btn-test" id="runMaliciousTestsBtn" onclick="runMaliciousTests()" style="background: linear-gradient(135deg, #f56565, #ed64a6);">
+        <i class="fas fa-bug"></i> 仅运行恶意测试
+    </button>
+    <button class="btn-secondary" onclick="clearTestResults()">
+        <i class="fas fa-trash"></i> 清除结果
+    </button>
+    <label style="display: flex; align-items: center; gap: 8px;">
+        <input type="checkbox" id="autoExpand" checked> 自动展开结果
+    </label>
+    <label style="display: flex; align-items: center; gap: 8px;">
+        <i class="fas fa-hourglass-half" style="color: #00d4ff;"></i>
+        <input type="range" id="testDelay" min="0.1" max="0.5" step="0.05" value="0.2" style="width: 100px;">
+        <span id="delayValue" style="color: #00d4ff;">0.2</span><span style="color: #aaa;">秒</span>
+    </label>
+</div>
+
+<!-- 测试用例列表 -->
+<div id="testCategoriesContainer">
+    <div style="text-align: center; color: #aaa; padding: 40px;">
+        <i class="fas fa-spinner fa-spin" style="color: #00d4ff;"></i> 加载测试用例...
+    </div>
+</div>
+
+<script>
+let testCases = null;
+let testResults = {};
+
+async function loadTestCases() {
+    try {
+        const resp = await fetch('/api/test_cases');
+        const data = await resp.json();
+        testCases = data.categories;
+
+        const categoryCount = Object.keys(testCases).length;
+        let totalCases = 0;
+        for (const cat in testCases) {
+            totalCases += testCases[cat].cases.length;
+        }
+        document.getElementById('totalTests').innerText = totalCases;
+        document.getElementById('categoryCount').innerText = categoryCount;
+
+        renderTestCategories();
+    } catch(e) {
+        console.error('加载测试用例失败:', e);
+        document.getElementById('testCategoriesContainer').innerHTML = `
+            <div class="card" style="text-align: center; color: #ff5050; padding: 40px;">
+                <i class="fas fa-exclamation-triangle"></i> 加载失败，请刷新重试
+            </div>
+        `;
+    }
+}
+
+function renderTestCategories() {
+    const container = document.getElementById('testCategoriesContainer');
+    if (!testCases) return;
+
+    let html = '';
+    for (const [category, info] of Object.entries(testCases)) {
+        const categoryId = category.replace(/\s/g, '_');
+        const isExtreme = category === '极端威胁类';
+
+        html += `
+            <div class="test-category" data-category="${category}" id="category-${categoryId}">
+                <div class="test-category-header" onclick="toggleCategory('${categoryId}')">
+                    <div class="test-category-title">
+                        <i class="${getCategoryIcon(category)}" style="color: ${getCategoryColor(category)}"></i>
+                        <span style="color: white;">${category}</span>
+                        ${isExtreme ? '<span class="badge-risk-critical">⚠️ 极高风险</span>' : ''}
+                        <span class="badge-risk-high" style="background: ${getCategoryColor(category)}20; color: ${getCategoryColor(category)};" id="badge-${categoryId}">
+                            ${info.cases.length} 个用例
+                        </span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <div class="progress-bar-container">
+                            <div class="progress-bar" id="progress-${categoryId}" style="width: 0%"></div>
+                        </div>
+                        <i class="fas fa-chevron-down" style="color: #aaa; transition: transform 0.2s;"></i>
+                        <button class="btn-secondary" onclick="runCategoryTest('${category}', event)" style="background: ${getCategoryColor(category)}20; color: ${getCategoryColor(category)};">
+                            运行
+                        </button>
+                    </div>
+                </div>
+                <div class="test-case-list" id="list-${categoryId}">
+                    ${info.cases.map((testCase, idx) => {
+                        const savedResult = testResults[category] && testResults[category][idx];
+                        const statusClass = savedResult ? (savedResult.blocked ? 'status-block' : 'status-pass') : 'status-untested';
+                        const statusText = savedResult ? (savedResult.blocked ? '🚫 已拦截' : '✓ 通过') : '未测试';
+                        return `
+                            <div class="test-case-item">
+                                <span class="test-case-text">${escapeHtml(testCase.length > 35 ? testCase.substring(0, 35) + '...' : testCase)}</span>
+                                <span class="test-case-status ${statusClass}" id="status-${categoryId}-${idx}">${statusText}</span>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    }
+    container.innerHTML = html;
+}
+
+function getCategoryIcon(category) {
+    const icons = {
+        '直接违规类': 'fas fa-ban',
+        '越狱攻击类': 'fas fa-unlock-alt',
+        '提示注入类': 'fas fa-syringe',
+        '边界试探类': 'fas fa-exclamation-triangle',
+        '变体绕过类': 'fas fa-random',
+        '正常基准类': 'fas fa-check-circle',
+        '极端威胁类': 'fas fa-skull-crossbones'
+    };
+    return icons[category] || 'fas fa-shield-alt';
+}
+
+function getCategoryColor(category) {
+    const colors = {
+        '直接违规类': '#ff5050',
+        '越狱攻击类': '#ff8c00',
+        '提示注入类': '#bb66ff',
+        '边界试探类': '#ffcc00',
+        '变体绕过类': '#00d4ff',
+        '正常基准类': '#48bb78',
+        '极端威胁类': '#ff0000'
+    };
+    return colors[category] || '#888';
+}
+
+function toggleCategory(categoryId) {
+    const categoryDiv = document.getElementById(`category-${categoryId}`);
+    categoryDiv.classList.toggle('open');
+    const chevron = categoryDiv.querySelector('.fa-chevron-down');
+    if (chevron) {
+        chevron.style.transform = categoryDiv.classList.contains('open') ? 'rotate(180deg)' : '';
+    }
+}
+
+async function runSingleTest(testCase, event) {
+    if (event) event.stopPropagation();
+
+    showToast(`测试中: ${testCase.substring(0, 30)}...`, 'info');
+
+    try {
+        const resp = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: testCase })
+        });
+        const data = await resp.json();
+
+        const isBlocked = data.blocked;
+        updateTestCaseStatus(testCase, isBlocked, data.detection);
+
+        if (isBlocked) {
+            showToast(`✅ 成功拦截: ${testCase.substring(0, 30)}`, 'success');
+        } else {
+            showToast(`⚠️ 未能拦截: ${testCase.substring(0, 30)}`, 'error');
+        }
+    } catch(e) {
+        console.error('测试失败:', e);
+        showToast(`测试失败: ${testCase.substring(0, 30)}`, 'error');
+    }
+}
+
+function updateTestCaseStatus(testCase, isBlocked, detection = null) {
+    for (const [category, info] of Object.entries(testCases)) {
+        const idx = info.cases.indexOf(testCase);
+        if (idx !== -1) {
+            if (!testResults[category]) testResults[category] = {};
+            testResults[category][idx] = { blocked: isBlocked, reason: detection?.reason || '' };
+
+            const categoryId = category.replace(/\s/g, '_');
+            const statusSpan = document.getElementById(`status-${categoryId}-${idx}`);
+            if (statusSpan) {
+                statusSpan.className = `test-case-status ${isBlocked ? 'status-block' : 'status-pass'}`;
+                statusSpan.innerHTML = isBlocked ? '🚫 已拦截' : '✓ 通过';
+                if (detection && detection.reason) {
+                    statusSpan.title = detection.reason;
+                }
+            }
+            updateCategoryProgress(category);
+            break;
+        }
+    }
+    updateGlobalStats();
+}
+
+function updateCategoryProgress(category) {
+    const info = testCases[category];
+    if (!info) return;
+
+    let tested = 0;
+    let blocked = 0;
+    const categoryId = category.replace(/\s/g, '_');
+    const categoryResults = testResults[category] || {};
+
+    for (let i = 0; i < info.cases.length; i++) {
+        if (categoryResults[i]) {
+            tested++;
+            if (categoryResults[i].blocked) blocked++;
+        }
+    }
+
+    const progress = (tested / info.cases.length) * 100;
+    const progressBar = document.getElementById(`progress-${categoryId}`);
+    if (progressBar) {
+        progressBar.style.width = `${progress}%`;
+    }
+
+    const badge = document.getElementById(`badge-${categoryId}`);
+    if (badge && tested > 0) {
+        const blockedRate = Math.round(blocked / tested * 100);
+        badge.innerHTML = `${info.cases.length} 个用例 | 拦截率 <span style="color: ${blockedRate >= 70 ? '#ff5050' : '#ffcc00'}">${blockedRate}%</span> (${blocked}/${tested})`;
+    }
+}
+
+function updateGlobalStats() {
+    let totalTested = 0;
+    let totalBlocked = 0;
+
+    for (const [category, info] of Object.entries(testCases)) {
+        const categoryResults = testResults[category] || {};
+        for (let i = 0; i < info.cases.length; i++) {
+            if (categoryResults[i]) {
+                totalTested++;
+                if (categoryResults[i].blocked) totalBlocked++;
+            }
+        }
+    }
+
+    document.getElementById('totalBlocked').innerText = totalBlocked;
+    const blockRate = totalTested > 0 ? Math.round(totalBlocked / totalTested * 100) : 0;
+    const blockRateElement = document.getElementById('blockRate');
+    blockRateElement.innerText = blockRate + '%';
+    blockRateElement.style.color = blockRate >= 70 ? '#ff5050' : (blockRate >= 40 ? '#ffcc00' : '#48bb78');
+    blockRateElement.style.background = 'none';
+}
+
+async function runCategoryTest(category, event) {
+    if (event) event.stopPropagation();
+
+    const info = testCases[category];
+    if (!info) return;
+
+    const delay = parseFloat(document.getElementById('testDelay').value);
+    const autoExpand = document.getElementById('autoExpand').checked;
+
+    if (autoExpand) {
+        const categoryId = category.replace(/\s/g, '_');
+        const categoryDiv = document.getElementById(`category-${categoryId}`);
+        if (!categoryDiv.classList.contains('open')) {
+            categoryDiv.classList.add('open');
+            const chevron = categoryDiv.querySelector('.fa-chevron-down');
+            if (chevron) chevron.style.transform = 'rotate(180deg)';
+        }
+    }
+
+    showToast(`开始测试「${category}」，共 ${info.cases.length} 个用例...`, 'info');
+
+    for (let i = 0; i < info.cases.length; i++) {
+        const testCase = info.cases[i];
+
+        try {
+            const resp = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: testCase })
+            });
+            const data = await resp.json();
+            updateTestCaseStatus(testCase, data.blocked, data.detection);
+        } catch(e) {
+            console.error('测试失败:', e);
+        }
+
+        await new Promise(resolve => setTimeout(resolve, delay * 1000));
+    }
+
+    showToast(`✅ 「${category}」测试完成`, 'success');
+}
+
+async function runAllTests() {
+    if (!testCases) return;
+
+    const btn = document.getElementById('runAllTestsBtn');
+    const statusDiv = document.getElementById('testStatus');
+    const autoExpand = document.getElementById('autoExpand').checked;
+    const delay = parseFloat(document.getElementById('testDelay').value);
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 运行中...';
+    statusDiv.style.display = 'flex';
+
+    let total = 0;
+    let completed = 0;
+
+    for (const [category, info] of Object.entries(testCases)) {
+        total += info.cases.length;
+    }
+
+    for (const [category, info] of Object.entries(testCases)) {
+        if (autoExpand) {
+            const categoryId = category.replace(/\s/g, '_');
+            const categoryDiv = document.getElementById(`category-${categoryId}`);
+            if (!categoryDiv.classList.contains('open')) {
+                categoryDiv.classList.add('open');
+                const chevron = categoryDiv.querySelector('.fa-chevron-down');
+                if (chevron) chevron.style.transform = 'rotate(180deg)';
+            }
+        }
+
+        for (let i = 0; i < info.cases.length; i++) {
+            const testCase = info.cases[i];
+
+            try {
+                const resp = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: testCase })
+                });
+                const data = await resp.json();
+                updateTestCaseStatus(testCase, data.blocked, data.detection);
+            } catch(e) {
+                console.error('测试失败:', e);
+            }
+
+            completed++;
+            statusDiv.innerHTML = `<span class="running-dot"></span> 测试运行中... ${completed}/${total}`;
+            await new Promise(resolve => setTimeout(resolve, delay * 1000));
+        }
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-play"></i> 运行全部测试';
+    statusDiv.style.display = 'none';
+
+    const finalBlocked = parseInt(document.getElementById('totalBlocked').innerText);
+    showToast(`✅ 全部测试完成！共测试 ${total} 个用例，拦截 ${finalBlocked} 个`, 'success');
+}
+
+async function runMaliciousTests() {
+    if (!testCases) return;
+
+    const maliciousCategories = ['直接违规类', '越狱攻击类', '提示注入类', '边界试探类', '变体绕过类', '极端威胁类'];
+
+    const btn = document.getElementById('runMaliciousTestsBtn');
+    const statusDiv = document.getElementById('testStatus');
+    const autoExpand = document.getElementById('autoExpand').checked;
+    const delay = parseFloat(document.getElementById('testDelay').value);
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 运行中...';
+    statusDiv.style.display = 'flex';
+
+    let total = 0;
+    let completed = 0;
+
+    for (const category of maliciousCategories) {
+        if (testCases[category]) {
+            total += testCases[category].cases.length;
+        }
+    }
+
+    for (const category of maliciousCategories) {
+        if (!testCases[category]) continue;
+
+        const info = testCases[category];
+
+        if (autoExpand) {
+            const categoryId = category.replace(/\s/g, '_');
+            const categoryDiv = document.getElementById(`category-${categoryId}`);
+            if (categoryDiv && !categoryDiv.classList.contains('open')) {
+                categoryDiv.classList.add('open');
+                const chevron = categoryDiv.querySelector('.fa-chevron-down');
+                if (chevron) chevron.style.transform = 'rotate(180deg)';
+            }
+        }
+
+        for (let i = 0; i < info.cases.length; i++) {
+            const testCase = info.cases[i];
+
+            try {
+                const resp = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: testCase })
+                });
+                const data = await resp.json();
+                updateTestCaseStatus(testCase, data.blocked, data.detection);
+            } catch(e) {
+                console.error('测试失败:', e);
+            }
+
+            completed++;
+            statusDiv.innerHTML = `<span class="running-dot"></span> 测试恶意用例... ${completed}/${total}`;
+            await new Promise(resolve => setTimeout(resolve, delay * 1000));
+        }
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-bug"></i> 仅运行恶意测试';
+    statusDiv.style.display = 'none';
+
+    showToast(`✅ 恶意测试完成！共测试 ${total} 个用例`, 'success');
+}
+
+async function clearTestResults() {
+    if (!confirm('确定要清除所有测试结果吗？')) return;
+
+    testResults = {};
+
+    for (const [category, info] of Object.entries(testCases)) {
+        const categoryId = category.replace(/\s/g, '_');
+        for (let i = 0; i < info.cases.length; i++) {
+            const statusSpan = document.getElementById(`status-${categoryId}-${i}`);
+            if (statusSpan) {
+                statusSpan.className = 'test-case-status status-untested';
+                statusSpan.innerHTML = '未测试';
+            }
+        }
+        const progressBar = document.getElementById(`progress-${categoryId}`);
+        if (progressBar) {
+            progressBar.style.width = '0%';
+        }
+        const badge = document.getElementById(`badge-${categoryId}`);
+        if (badge) {
+            badge.innerHTML = `${info.cases.length} 个用例`;
+        }
+    }
+
+    document.getElementById('totalBlocked').innerText = '0';
+    document.getElementById('blockRate').innerText = '0%';
+    document.getElementById('blockRate').style.color = '#aaa';
+
+    showToast('测试结果已清除', 'success');
+}
+
+function showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    const bgColor = type === 'error' ? 'rgba(255,80,80,0.95)' : (type === 'info' ? 'rgba(0,212,255,0.95)' : 'rgba(72,187,120,0.95)');
+    toast.style.cssText = `
+        position: fixed;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: ${bgColor};
+        backdrop-filter: blur(10px);
+        color: white;
+        padding: 12px 24px;
+        border-radius: 40px;
+        z-index: 9999;
+        font-size: 14px;
+        font-weight: 500;
+        animation: fadeInOut 2.5s forwards;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    `;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2500);
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+document.getElementById('testDelay').addEventListener('input', function() {
+    document.getElementById('delayValue').innerText = this.value;
+});
+
+loadTestCases();
+</script>
+
+<style>
+@keyframes fadeInOut {
+    0% { opacity: 0; transform: translateX(-50%) translateY(20px); }
+    15% { opacity: 1; transform: translateX(-50%) translateY(0); }
+    85% { opacity: 1; transform: translateX(-50%) translateY(0); }
+    100% { opacity: 0; transform: translateX(-50%) translateY(20px); }
+}
+</style>
+{% endblock %}

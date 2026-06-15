@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}系统设置 - SafeGuard AI{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 25px;">
+    <h1 style="color: white; font-size: 1.8rem; font-weight: 600;">系统设置</h1>
+    <p style="color: #888; margin-top: 8px;">敏感词管理 · 安全配置</p>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px;">
+    <div class="card">
+        <h3><i class="fas fa-ban"></i> 敏感词管理</h3>
+        <div style="margin: 20px 0; display: flex; gap: 10px;">
+            <input type="text" id="newWord" placeholder="输入新敏感词"
+                   style="flex: 1; padding: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; color: white; outline: none;">
+            <button class="btn-primary" onclick="addSensitiveWord()">添加</button>
+        </div>
+        <div id="sensitiveList" style="display: flex; flex-wrap: wrap; gap: 10px;">
+            {% for word in sensitive_words %}
+            <span class="sensitive-tag" data-word="{{ word }}">
+                {{ word }} <button onclick="removeWord('{{ word }}')" style="background: none; border: none; cursor: pointer; margin-left: 5px; color: #888;">×</button>
+            </span>
+            {% endfor %}
+        </div>
+        <div style="margin-top: 20px; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 12px; font-size: 12px; color: #888;">
+            <i class="fas fa-info-circle"></i> 敏感词会被拦截，白名单中的词优先放行
+        </div>
+    </div>
+
+    <div class="card">
+        <h3><i class="fas fa-info-circle"></i> 系统信息</h3>
+        <div style="margin-top: 20px;">
+            <div style="padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.08); color: #ccc;">版本: v3.0（安全监测版）</div>
+            <div style="padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.08); color: #ccc;">
+                检测架构:
+                <span style="color: #00d4ff;">敏感词过滤</span> →
+                <span style="color: #7b2eda;">DeepSeek AI</span>
+            </div>
+            <div style="padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.08); color: #ccc;">敏感词数量: {{ sensitive_words|length }}</div>
+            <div style="padding: 12px 0; color: #ccc;">数据库: SQLite</div>
+        </div>
+        <div style="margin-top: 15px; padding: 12px; background: linear-gradient(135deg, rgba(0,212,255,0.1), rgba(123,46,218,0.1)); border-radius: 12px;">
+            <i class="fas fa-shield-alt" style="color: #00d4ff;"></i>
+            <strong style="color: white;"> 安全状态</strong>
+            <div style="font-size: 11px; color: #aaa; margin-top: 5px;">✓ 敏感词过滤已启用<br>✓ AI检测正常运行</div>
+        </div>
+    </div>
+</div>
+
+<style>
+.sensitive-tag {
+    background: rgba(255,255,255,0.08);
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: #ccc;
+}
+.sensitive-tag button { color: #888; font-size: 14px; }
+.sensitive-tag button:hover { color: #ff5050; }
+</style>
+
+<script>
+async function addSensitiveWord() {
+    const word = document.getElementById('newWord').value.trim();
+    if (!word) return;
+
+    const resp = await fetch('/api/sensitive/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ word: word })
+    });
+    const data = await resp.json();
+    if (data.success) {
+        const container = document.getElementById('sensitiveList');
+        container.innerHTML += `<span class="sensitive-tag" data-word="${word}">${word} <button onclick="removeWord('${word}')">×</button></span>`;
+        document.getElementById('newWord').value = '';
+        showToast('添加成功', 'success');
+    } else {
+        showToast(data.error || '添加失败', 'error');
+    }
+}
+
+async function removeWord(word) {
+    const resp = await fetch('/api/sensitive/remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ word: word })
+    });
+    if ((await resp.json()).success) {
+        document.querySelector(`.sensitive-tag[data-word="${word}"]`).remove();
+        showToast('删除成功', 'success');
+    }
+}
+</script>
+{% endblock %}

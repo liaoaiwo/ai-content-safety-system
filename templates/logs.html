@@ -1,0 +1,426 @@
+{% extends "base.html" %}
+
+{% block title %}安全日志 - SafeGuard AI{% endblock %}
+
+{% block extra_css %}
+<style>
+    .chart-card {
+        background: rgba(20, 20, 25, 0.95);
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 20px;
+        margin-bottom: 25px;
+    }
+
+    .chart-card h3 {
+        color: white;
+        font-size: 1rem;
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .chart-card h3 i {
+        color: #00d4ff;
+    }
+
+    .stats-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+
+    .stat-mini-card {
+        background: rgba(20, 20, 25, 0.95);
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 15px;
+        text-align: center;
+    }
+
+    .stat-mini-card .number {
+        font-size: 1.8rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #00d4ff, #7b2eda);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+
+    .stat-mini-card .label {
+        font-size: 11px;
+        color: #888;
+        margin-top: 5px;
+    }
+
+    .filter-bar {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .filter-btn {
+        background: rgba(255, 255, 255, 0.08);
+        color: #ccc;
+        border: none;
+        padding: 6px 16px;
+        border-radius: 20px;
+        cursor: pointer;
+        font-size: 12px;
+        transition: all 0.2s;
+    }
+
+    .filter-btn.active {
+        background: linear-gradient(135deg, #00d4ff, #7b2eda);
+        color: white;
+    }
+
+    .filter-btn:hover {
+        background: rgba(255, 255, 255, 0.15);
+    }
+
+    .logs-table-container {
+        overflow-x: auto;
+        max-height: 500px;
+        overflow-y: auto;
+    }
+
+    .logs-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+    }
+
+    .logs-table th {
+        text-align: left;
+        padding: 12px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        color: #aaa;
+        font-weight: 500;
+        position: sticky;
+        top: 0;
+        background: #1a1a2a;
+    }
+
+    .logs-table td {
+        padding: 10px 12px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        color: #ddd;
+    }
+
+    .badge-log-pass {
+        background: rgba(0, 200, 100, 0.15);
+        color: #48bb78;
+        padding: 3px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+    }
+
+    .badge-log-block {
+        background: rgba(255, 80, 80, 0.15);
+        color: #ff8080;
+        padding: 3px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+    }
+
+    .hit-words {
+        font-size: 11px;
+        color: #ffaa66;
+        max-width: 150px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .pagination {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 20px;
+    }
+
+    .page-btn {
+        background: rgba(255, 255, 255, 0.08);
+        color: #ccc;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 12px;
+    }
+
+    .page-btn.active {
+        background: linear-gradient(135deg, #00d4ff, #7b2eda);
+        color: white;
+    }
+
+    .page-btn:hover:not(.active) {
+        background: rgba(255, 255, 255, 0.15);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 25px;">
+    <h1 style="color: white; font-size: 1.8rem; font-weight: 600;">
+        <i class="fas fa-history"></i> 安全日志
+    </h1>
+    <p style="color: #888; margin-top: 8px;">所有对话记录 · 安全检测详情 · 拦截趋势分析</p>
+</div>
+
+<!-- 统计卡片 -->
+<div class="stats-row">
+    <div class="stat-mini-card">
+        <div class="number" id="statTotal">0</div>
+        <div class="label">总对话数</div>
+    </div>
+    <div class="stat-mini-card">
+        <div class="number" id="statBlocked" style="color: #ff5050; background: none; -webkit-background-clip: unset;">0</div>
+        <div class="label">拦截次数</div>
+    </div>
+    <div class="stat-mini-card">
+        <div class="number" id="statBlockRate">0%</div>
+        <div class="label">拦截率</div>
+    </div>
+    <div class="stat-mini-card">
+        <div class="number" id="statTodayBlocked">0</div>
+        <div class="label">今日拦截</div>
+    </div>
+</div>
+
+<!-- 拦截趋势图 -->
+<div class="chart-card">
+    <h3><i class="fas fa-chart-line"></i> 拦截趋势（近7天）</h3>
+    <div id="trendChart" style="height: 280px;"></div>
+</div>
+
+<!-- 日志列表 -->
+<div class="chart-card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+        <h3 style="margin: 0;"><i class="fas fa-list-alt"></i> 对话记录</h3>
+        <div class="filter-bar">
+            <button class="filter-btn active" data-filter="all" onclick="filterLogs('all')">全部</button>
+            <button class="filter-btn" data-filter="blocked" onclick="filterLogs('blocked')">仅拦截</button>
+            <button class="filter-btn" data-filter="passed" onclick="filterLogs('passed')">仅通过</button>
+            <button class="filter-btn" data-filter="today" onclick="filterLogs('today')">今日</button>
+        </div>
+    </div>
+
+    <div class="logs-table-container">
+        <table class="logs-table">
+            <thead>
+                <tr>
+                    <th>时间</th>
+                    <th>用户输入</th>
+                    <th>命中词</th>
+                    <th>检测层级</th>
+                    <th>状态</th>
+                </tr>
+            </thead>
+            <tbody id="logsTableBody">
+                <tr><td colspan="5" style="text-align: center; padding: 40px; color: #888;">加载中...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="pagination" id="pagination"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<script>
+let allLogs = [];
+let currentFilter = 'all';
+let currentPage = 1;
+const pageSize = 20;
+let trendChart = null;
+
+// 加载日志
+async function loadLogs() {
+    try {
+        const resp = await fetch('/api/logs');
+        allLogs = await resp.json();
+        updateStats();
+        renderLogs();
+        loadTrendChart();
+    } catch(e) {
+        console.error('加载日志失败:', e);
+        document.getElementById('logsTableBody').innerHTML = '<tr><td colspan="5" style="text-align: center; color: #ff5050; padding: 40px;">加载失败，请刷新重试</td></tr>';
+    }
+}
+
+// 更新统计
+function updateStats() {
+    const total = allLogs.length;
+    const blocked = allLogs.filter(l => l.is_blocked).length;
+    const blockRate = total > 0 ? ((blocked / total) * 100).toFixed(1) : 0;
+
+    // 今日拦截
+    const today = new Date().toISOString().slice(0, 10);
+    const todayBlocked = allLogs.filter(l => l.is_blocked && l.timestamp.startsWith(today)).length;
+
+    document.getElementById('statTotal').innerText = total;
+    document.getElementById('statBlocked').innerText = blocked;
+    document.getElementById('statBlockRate').innerText = blockRate + '%';
+    document.getElementById('statTodayBlocked').innerText = todayBlocked;
+}
+
+// 过滤日志
+function filterLogs(filter) {
+    currentFilter = filter;
+    currentPage = 1;
+
+    // 更新按钮样式
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.filter === filter) {
+            btn.classList.add('active');
+        }
+    });
+
+    renderLogs();
+}
+
+// 获取过滤后的日志
+function getFilteredLogs() {
+    let filtered = [...allLogs];
+
+    if (currentFilter === 'blocked') {
+        filtered = filtered.filter(l => l.is_blocked);
+    } else if (currentFilter === 'passed') {
+        filtered = filtered.filter(l => !l.is_blocked);
+    } else if (currentFilter === 'today') {
+        const today = new Date().toISOString().slice(0, 10);
+        filtered = filtered.filter(l => l.timestamp.startsWith(today));
+    }
+
+    return filtered;
+}
+
+// 渲染日志表格
+function renderLogs() {
+    const filtered = getFilteredLogs();
+    const totalPages = Math.ceil(filtered.length / pageSize);
+    const start = (currentPage - 1) * pageSize;
+    const pageLogs = filtered.slice(start, start + pageSize);
+
+    const tbody = document.getElementById('logsTableBody');
+
+    if (pageLogs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 40px; color: #888;">暂无记录</td></tr>';
+        document.getElementById('pagination').innerHTML = '';
+        return;
+    }
+
+    tbody.innerHTML = pageLogs.map(log => `
+        <tr>
+            <td style="white-space: nowrap; font-size: 12px; color: #888;">${log.timestamp.replace('T', ' ').slice(0, 19)}</td>
+            <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(log.user_input)}">${escapeHtml(log.user_input.substring(0, 50))}${log.user_input.length > 50 ? '...' : ''}</td>
+            <td><span class="hit-words" title="${escapeHtml(log.hit_words || '-')}">${escapeHtml(log.hit_words || '-')}</span></td>
+            <td style="font-size: 11px;">${escapeHtml(log.detection_layer || '-')}</td>
+            <td>${log.is_blocked ? '<span class="badge-log-block">🚫 拦截</span>' : '<span class="badge-log-pass">✓ 通过</span>'}</td>
+        </tr>
+    `).join('');
+
+    // 渲染分页
+    renderPagination(totalPages);
+}
+
+// 渲染分页
+function renderPagination(totalPages) {
+    const container = document.getElementById('pagination');
+    if (totalPages <= 1) {
+        container.innerHTML = '';
+        return;
+    }
+
+    let html = '';
+    for (let i = 1; i <= Math.min(totalPages, 10); i++) {
+        html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
+    }
+    container.innerHTML = html;
+}
+
+function goToPage(page) {
+    currentPage = page;
+    renderLogs();
+}
+
+// 加载拦截趋势图
+async function loadTrendChart() {
+    try {
+        const resp = await fetch('/api/stats');
+        const stats = await resp.json();
+
+        if (!trendChart) {
+            trendChart = echarts.init(document.getElementById('trendChart'));
+            trendChart.setOption({
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                grid: { top: 30, left: 50, right: 20, bottom: 20 },
+                xAxis: {
+                    type: 'category',
+                    name: '日期',
+                    axisLabel: { color: '#888' },
+                    axisLine: { lineStyle: { color: '#333' } }
+                },
+                yAxis: {
+                    type: 'value',
+                    name: '拦截次数',
+                    axisLabel: { color: '#888' },
+                    splitLine: { lineStyle: { color: '#222' } }
+                },
+                series: [{
+                    type: 'line',
+                    smooth: true,
+                    data: [],
+                    lineStyle: { color: '#ff5050', width: 3 },
+                    areaStyle: { opacity: 0.2, color: '#ff5050' },
+                    symbol: 'circle',
+                    symbolSize: 8,
+                    itemStyle: { color: '#ff5050', borderColor: '#0a0a0a', borderWidth: 2 }
+                }]
+            });
+        }
+
+        if (stats.trend && stats.trend.length > 0) {
+            const dates = stats.trend.map(t => t.date);
+            const counts = stats.trend.map(t => t.count);
+            trendChart.setOption({
+                xAxis: { data: dates },
+                series: [{ data: counts }]
+            });
+        }
+    } catch(e) {
+        console.error('加载趋势图失败:', e);
+    }
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// 自动刷新
+let refreshInterval;
+function startAutoRefresh() {
+    loadLogs();
+    refreshInterval = setInterval(() => {
+        loadLogs();
+    }, 10000);
+}
+
+// 页面加载
+startAutoRefresh();
+
+// 页面卸载时清除定时器
+window.addEventListener('beforeunload', () => {
+    if (refreshInterval) clearInterval(refreshInterval);
+});
+</script>
+{% endblock %}
